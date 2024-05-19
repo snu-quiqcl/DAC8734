@@ -6,6 +6,7 @@ Created on Tue Feb 13 17:22:32 2018
 """
 
 from Arty_S7_v1_01 import ArtyS7
+from uart_convertor import convert
 
 
 
@@ -16,6 +17,7 @@ class DAC8734():
     
     def close(self):
         self.fpga.close()
+        convert()
         
     def print_idn(self):
         self.fpga.send_command('*IDN?') # com.write(b'!5*IDN?\r\n')
@@ -74,6 +76,13 @@ if __name__ == '__main__':
     dac = DAC8734(None)
 
     dac.voltage_register_update(0, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(1, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(2, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(3, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(4, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(5, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(6, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
+    dac.voltage_register_update(7, 0, 1) # Set ch0 of DAC0 to 1.0 (V)
     
     dac.close()
 
