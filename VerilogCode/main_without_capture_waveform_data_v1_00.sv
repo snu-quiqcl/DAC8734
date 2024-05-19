@@ -2,6 +2,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 // Company: 
 // Engineer: 
+// SNU Junho Jeong
+// SNU QuIQCL Yongwhan Cha
 // 
 // Create Date: 2017/11/23 20:28:05
 // Design Name: 
@@ -155,20 +157,20 @@ wire TX_FIFO_ready;
 wire [1:32] monitoring_32bits;
 
 data_sender sender(
-.FSMState                               (),
-.clk                                    (CLK100MHZ),
-.TxD                                    (Uart_TXD),
-.esc_char_detected                      (esc_char_detected),
-.esc_char                               (esc_char),
-.wrong_format                           (wrong_format),
-.TX_buffer1_length                      (TX_buffer1_length),
-.TX_buffer1                             (TX_buffer1),
-.TX_buffer1_ready                       (TX_buffer1_ready),
-.TX_buffer2_length                      (TX_buffer2_length),
-.TX_buffer2                             (TX_buffer2),
-.TX_buffer2_ready                       (TX_buffer2_ready),
-.TX_FIFO_ready                          (TX_FIFO_ready),
-.bits_to_send                           (monitoring_32bits)
+    .FSMState                               (),
+    .clk                                    (CLK100MHZ),
+    .TxD                                    (Uart_TXD),
+    .esc_char_detected                      (esc_char_detected),
+    .esc_char                               (esc_char),
+    .wrong_format                           (wrong_format),
+    .TX_buffer1_length                      (TX_buffer1_length),
+    .TX_buffer1                             (TX_buffer1),
+    .TX_buffer1_ready                       (TX_buffer1_ready),
+    .TX_buffer2_length                      (TX_buffer2_length),
+    .TX_buffer2                             (TX_buffer2),
+    .TX_buffer2_ready                       (TX_buffer2_ready),
+    .TX_FIFO_ready                          (TX_FIFO_ready),
+    .bits_to_send                           (monitoring_32bits)
 );
 
 defparam sender.ClkFreq                 = ClkFreq;
@@ -359,13 +361,14 @@ typedef enum logic [3:0] {MAIN_IDLE,
 state_type main_state;
 
 initial begin
+    main_state <= MAIN_IDLE;
     patterns <= 'd0;
     TX_buffer1_ready <= 1'b0;
     TX_buffer2_ready <= 1'b0;
     waveform_capture_start_trigger <= 1'b0;
 end
 
-always_ff @ (posedge CLK100MHZ) begin
+always @ (posedge CLK100MHZ) begin
     if (esc_char_detected == 1'b1) begin
         if (esc_char == "C") begin
             TX_buffer1_ready <= 1'b0;
@@ -473,6 +476,7 @@ always_ff @ (posedge CLK100MHZ) begin
             end
 
             MAIN_DAC_WAIT_FOR_BUSY_ON: begin
+                $display("MAIN_DAC_WAIT_FOR_BUSY_ON");
                 if (DAC_busy != 'd0) begin
                     main_state <= MAIN_DAC_WAIT_FOR_BUSY_OFF;
                     DAC_start[7:0] <= 8'd0;
@@ -481,12 +485,14 @@ always_ff @ (posedge CLK100MHZ) begin
 
 
             MAIN_DAC_WAIT_FOR_BUSY_OFF: begin
+                $display("MAIN_DAC_WAIT_FOR_BUSY_OFF");
                 if (DAC_busy == 'd0) begin 
                     main_state <= MAIN_IDLE;
                 end
             end
 
             MAIN_DAC_LDAC_PAUSE: begin // ldac should be low for at least 15ns
+                $display("MAIN_DAC_LDAC_PAUSE");
                 if (ldac_pause_count == 0) begin
                     main_state <= MAIN_DAC_LDAC_OFF;
                 end
@@ -494,18 +500,18 @@ always_ff @ (posedge CLK100MHZ) begin
             end
 
             MAIN_DAC_LDAC_OFF: begin
+                $display("MAIN_DAC_LDAC_OFF");
                 ldac_bar <= 1'b1;
                 main_state <= MAIN_IDLE;
             end
 
             MAIN_UNKNOWN_CMD: begin
-                begin
-                    TX_buffer1[1:11*8] <= "Unknown CMD";
-                    TX_buffer1_length[TX_BUFFER1_LENGTH_WIDTH-1:0] <= 'd11;
-                    TX_buffer1_ready <= 1'b1;
+                $display("MAIN_UNKNOWN_CMD");
+                TX_buffer1[1:11*8] <= "Unknown CMD";
+                TX_buffer1_length[TX_BUFFER1_LENGTH_WIDTH-1:0] <= 'd11;
+                TX_buffer1_ready <= 1'b1;
 
-                    main_state <= MAIN_IDLE;
-                end
+                main_state <= MAIN_IDLE;
             end
                 
             default: begin
