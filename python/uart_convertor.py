@@ -16,10 +16,14 @@ def convert():
     print(rf)
     print(wf)
     print('converting start')
-    i = 0
     while True:
         line = rf.readline()
         if not line:
+            wf.write("    #10000000;\n")
+            wf.write("    /*\n")
+            wf.write("    * End of simulation\n")
+            wf.write("     */\n")
+            wf.write("    $finish;\n")
             rf.close()
             wf.close()
             print('converting end')
@@ -36,7 +40,11 @@ def convert():
             wf.write(f"    * {line}\n")
             wf.write("     */\n")
             wf.write(f"    $display(\"{line}\");\n")
-            wf.write("    #10000000;\n")
+            if( line == "output of python file"):
+                wf.write("    #10000000;\n")
+            else:
+                wf.write("    #1000;\n")
+                
 
 if __name__ == "__main__":
     convert()
