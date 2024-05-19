@@ -39,7 +39,6 @@ def convert():
             wf.write("    /*\n")
             wf.write(f"    * {line}\n")
             wf.write("     */\n")
-            wf.write(f"    $display(\"{line}\");\n")
             if( line == "output of python file"):
                 wf.write("    #10000000;\n")
             else:
