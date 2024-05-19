@@ -33,14 +33,9 @@ reg BTN1;
 reg BTN2;
 
 wire Uart_TXD;
-wire DAC0_CSB, DAC0_SCLK, DAC0_SDO;
-wire DAC1_CSB, DAC1_SCLK, DAC1_SDO;
-wire DAC2_CSB, DAC2_SCLK, DAC2_SDO;
-wire DAC3_CSB, DAC3_SCLK, DAC3_SDO;
-wire DAC4_CSB, DAC4_SCLK, DAC4_SDO;
-wire DAC5_CSB, DAC5_SCLK, DAC5_SDO;
-wire DAC6_CSB, DAC6_SCLK, DAC6_SDO;
-wire DAC7_CSB, DAC7_SCLK, DAC7_SDO;
+wire [7:0] DAC_CSB;
+wire [7:0] DAC_SCLK;
+wire [7:0] DAC_SDO;
 
 wire ck_io_6; // LDAC
 wire ja_0;
@@ -82,30 +77,30 @@ main_without_capture_waveform_data dut (
     .BTN0                               (BTN0),
     .BTN1                               (BTN1),
     .BTN2                               (BTN2),
-    .ck_io_39                           (DAC0_CSB), 
-    .ck_io_38                           (DAC0_SCLK), 
-    .ck_io_37                           (DAC0_SDO), // DAC0
-    .ck_io_36                           (DAC1_CSB), 
-    .ck_io_35                           (DAC1_SCLK), 
-    .ck_io_34                           (DAC1_SDO), // DAC1
-    .ck_io_31                           (DAC6_CSB), 
-    .ck_io_30                           (DAC6_SCLK), 
-    .ck_io_29                           (DAC6_SDO), // DAC6
-    .ck_io_28                           (DAC7_CSB), 
-    .ck_io_27                           (DAC7_SCLK), 
-    .ck_io_26                           (DAC7_SDO), // DAC7
-    .ck_io_13                           (DAC2_CSB), 
-    .ck_io_12                           (DAC2_SCLK), 
-    .ck_io_11                           (DAC2_SDO), // DAC2
-    .ck_io_10                           (DAC3_CSB), 
-    .ck_io_9                            (DAC3_SCLK), 
-    .ck_io_8                            (DAC3_SDO), // DAC3
-    .ck_io_5                            (DAC4_CSB), 
-    .ck_io_4                            (DAC4_SCLK), 
-    .ck_io_3                            (DAC4_SDO), // DAC4
-    .ck_io_2                            (DAC5_CSB), 
-    .ck_io_1                            (DAC5_SCLK), 
-    .ck_io_0                            (DAC5_SDO), // DAC5
+    .ck_io_39                           (DAC_CSB[0]), 
+    .ck_io_38                           (DAC_SCLK[0]), 
+    .ck_io_37                           (DAC_SDO[0]), // DAC0
+    .ck_io_36                           (DAC_CSB[1]), 
+    .ck_io_35                           (DAC_SCLK[1]), 
+    .ck_io_34                           (DAC_SDO[1]), // DAC1
+    .ck_io_31                           (DAC_CSB[6]), 
+    .ck_io_30                           (DAC_SCLK[6]), 
+    .ck_io_29                           (DAC_SDO[6]), // DAC6
+    .ck_io_28                           (DAC_CSB[7]), 
+    .ck_io_27                           (DAC_SCLK[7]), 
+    .ck_io_26                           (DAC_SDO[7]), // DAC7
+    .ck_io_13                           (DAC_CSB[2]), 
+    .ck_io_12                           (DAC_SCLK[2]), 
+    .ck_io_11                           (DAC_SDO[2]), // DAC2
+    .ck_io_10                           (DAC_CSB[3]), 
+    .ck_io_9                            (DAC_SCLK[3]), 
+    .ck_io_8                            (DAC_SDO[3]), // DAC3
+    .ck_io_5                            (DAC_CSB[4]), 
+    .ck_io_4                            (DAC_SCLK[4]), 
+    .ck_io_3                            (DAC_SDO[4]), // DAC4
+    .ck_io_2                            (DAC_CSB[5]), 
+    .ck_io_1                            (DAC_SCLK[5]), 
+    .ck_io_0                            (DAC_SDO[5]), // DAC5
     .ck_io_6                            (ck_io_6), // LDAC
     .ja_0                               (ja_0),
     .ja_1                               (ja_1),
@@ -159,7 +154,6 @@ task automatic uart_transmit(
         else begin
             byte_num = byte_num + 1;
         end
-        $display("UART SEND : %x",data);
         bit_time = 1000000000 / baudrate;
         
         for (i = 0; i < byte_num; i = i + 1) begin
@@ -203,6 +197,71 @@ task automatic uart_transmit(
 endtask
 
 //////////////////////////////////////////////////////////////////////////////////
+// SPI Verification Task
+//////////////////////////////////////////////////////////////////////////////////
+wire csb, sclk, sdo;
+assign csb = &DAC_CSB;
+assign sclk = |((~DAC_CSB) & DAC_SCLK);
+assign sdo = |((~DAC_CSB) & DAC_SDO);
+                   
+task automatic verify_spi_data();
+    begin
+        int k;
+        reg [23:0] received_data;
+        int dac_channel;
+
+        @(negedge csb);
+        case(~DAC_CSB)
+            8'b10000000: begin
+                dac_channel = 7;
+            end
+            8'b01000000: begin
+                dac_channel = 6;
+            end
+            8'b00100000: begin
+                dac_channel = 5;
+            end
+            8'b00010000: begin
+                dac_channel = 4;
+            end
+            8'b00001000: begin
+                dac_channel = 3;
+            end
+            8'b00000100: begin
+                dac_channel = 2;
+            end
+            8'b00000010: begin
+                dac_channel = 1;
+            end
+            8'b00000001: begin
+                dac_channel = 0;
+            end
+            default: begin
+                $display("Invalid DAC channel: %x", ~DAC_CSB);
+                $finish;
+            end
+        endcase
+
+        // Read the data from the SPI bus
+        for (k = 23; k >= 0; k = k - 1) begin
+            @(negedge sclk);
+            received_data[k] = sdo;
+        end
+
+        // Wait for the CSB to go high, indicating the end of SPI communication
+        @(posedge csb);
+        
+        $display("DAC channel %0d, address %0h, data %0h", dac_channel, received_data[23:16], received_data[15:0]);
+    end
+endtask
+
+initial begin
+    forever begin
+        verify_spi_data();
+    end
+end
+
+//////////////////////////////////////////////////////////////////////////////////
 // Clock Generation
 //////////////////////////////////////////////////////////////////////////////////
 initial begin
@@ -227,121 +286,103 @@ initial begin
     //////////////////////////////////////////////////////////////////////////////////
     // UART simulation code to be written
     //////////////////////////////////////////////////////////////////////////////////
-    
-        /*
+    /*
     * output of python file
      */
-    $display("output of python file");
     #10000000;
     /*
     * b'#14\x01\x04\x19\x99\r\n'
      */
-    $display("b'#14\x01\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010000000001001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14\x02\x04\x19\x99\r\n'
      */
-    $display("b'#14\x02\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010000000010001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14\x04\x04\x19\x99\r\n'
      */
-    $display("b'#14\x04\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010000000100001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14\x08\x04\x19\x99\r\n'
      */
-    $display("b'#14\x08\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010000001000001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14\x10\x10\x04\x19\x99\r\n'
      */
-    $display("b'#14\x10\x10\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(80'b00001010000011011001100100011001000001000001000000010000001101000011000100100011);
     uart_transmit(BaudRate,80,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14 \x04\x19\x99\r\n'
      */
-    $display("b'#14 \x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010000100000001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14@\x04\x19\x99\r\n'
      */
-    $display("b'#14@\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010001000000001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
     /*
     * b'#14\x80\x04\x19\x99\r\n'
      */
-    $display("b'#14\x80\x04\x19\x99\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(72'b000010100000110110011001000110010000010010000000001101000011000100100011);
     uart_transmit(BaudRate,72,uart_data);
     /*
     * b'!9WRITE REG\r\n'
      */
-    $display("b'!9WRITE REG\r\n'");
     #1000;
     uart_data = MAX_UART_LEN'(104'b00001010000011010100011101000101010100100010000001000101010101000100100101010010010101110011100100100001);
     uart_transmit(BaudRate,104,uart_data);
@@ -350,8 +391,6 @@ initial begin
     * End of simulation
      */
     $finish;
-
-
 
 end
     
