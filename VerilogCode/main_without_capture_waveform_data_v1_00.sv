@@ -476,7 +476,6 @@ always @ (posedge CLK100MHZ) begin
             end
 
             MAIN_DAC_WAIT_FOR_BUSY_ON: begin
-                $display("MAIN_DAC_WAIT_FOR_BUSY_ON");
                 if (DAC_busy != 'd0) begin
                     main_state <= MAIN_DAC_WAIT_FOR_BUSY_OFF;
                     DAC_start[7:0] <= 8'd0;
@@ -485,14 +484,12 @@ always @ (posedge CLK100MHZ) begin
 
 
             MAIN_DAC_WAIT_FOR_BUSY_OFF: begin
-                $display("MAIN_DAC_WAIT_FOR_BUSY_OFF");
                 if (DAC_busy == 'd0) begin 
                     main_state <= MAIN_IDLE;
                 end
             end
 
             MAIN_DAC_LDAC_PAUSE: begin // ldac should be low for at least 15ns
-                $display("MAIN_DAC_LDAC_PAUSE");
                 if (ldac_pause_count == 0) begin
                     main_state <= MAIN_DAC_LDAC_OFF;
                 end
@@ -500,13 +497,11 @@ always @ (posedge CLK100MHZ) begin
             end
 
             MAIN_DAC_LDAC_OFF: begin
-                $display("MAIN_DAC_LDAC_OFF");
                 ldac_bar <= 1'b1;
                 main_state <= MAIN_IDLE;
             end
 
             MAIN_UNKNOWN_CMD: begin
-                $display("MAIN_UNKNOWN_CMD");
                 TX_buffer1[1:11*8] <= "Unknown CMD";
                 TX_buffer1_length[TX_BUFFER1_LENGTH_WIDTH-1:0] <= 'd11;
                 TX_buffer1_ready <= 1'b1;
