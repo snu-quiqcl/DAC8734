@@ -227,7 +227,7 @@ led_intensity_adjust led_intensity_modulator(
 // Command definition for *IDN? command
 /////////////////////////////////////////////////////////////////
 parameter CMD_IDN                       = "*IDN?";
-parameter IDN_REPLY                     = "DAC v1_00"; // 9 characters
+parameter IDN_REPLY                     = "DAC v1_10"; // 9 characters
 
 
 /////////////////////////////////////////////////////////////////
@@ -238,57 +238,86 @@ parameter CMD_TEST                      = {8'h10, "TEST", 8'h10};
 /////////////////////////////////////////////////////////////////
 // Command definition for DAC
 /////////////////////////////////////////////////////////////////
+localparam NUM_CS                        = 8;
+parameter CMD_SET_SPI_CONFIG            = "SET CONFIG";
 parameter CMD_WRITE_REG                 = "WRITE REG"; // 9 characters
+parameter CMD_RESET                     = "RESET";
 parameter DAC_DATA_WIDTH                = 24;
 
+reg spi_reset;
+reg [31:0] spi_config_in;
+reg spi_config_selected;
+reg [31:0] spi_data_in;
+reg spi_data_selected;
+wire sdi;
+wire busy;
+wire [31:0] spi_data_out;
+wire data_write;
+wire sdo;
+wire cpha;
+wire cpol;
+wire cspol;
+wire slave_en;
+wire cs_next;
+wire sck_next;
+wire [NUM_CS-1:0] cs_val;
+wire sck;
+wire [NUM_CS-1:0] cs;
+wire io;
 
-reg [7:0] DAC_start;
-initial DAC_start[7:0] <= 8'd0;
+// Instantiate the SPI FSM module
+spi_fsm_module #(
+    .NUM_CS                              (NUM_CS)
+) spi_fsm_inst (
+    .CLK100MHZ                           (CLK100MHZ),
+    .reset                               (spi_reset),
+    .spi_config_in                       (spi_config_in),
+    .spi_config_selected                 (spi_config_selected),
+    .spi_data_in                         (spi_data_in),
+    .spi_data_selected                   (spi_data_selected),
+    .sdi                                 (sdi),
+    .busy                                (busy),
+    .spi_data_out                        (spi_data_out),
+    .data_write                          (data_write),
+    .sdo                                 (sdo),
+    .cpha                                (cpha),
+    .cpol                                (cpol),
+    .cspol                               (cspol),
+    .slave_en                            (slave_en),
+    .cs_next                             (cs_next),
+    .sck_next                            (sck_next),
+    .cs_val                              (cs_val)
+);
 
-reg [DAC_DATA_WIDTH+8:1] DAC_buffer;
-
-wire [7:0] DAC_update;
-wire [DAC_DATA_WIDTH:1] DAC_data;
-wire DAC_clock;
-assign DAC_update[7:0] = BTF_Buffer[DAC_DATA_WIDTH+8:DAC_DATA_WIDTH+1];
-assign DAC_data = DAC_buffer[DAC_DATA_WIDTH:1];
-
-reg [3:0] slow_clock;
-initial slow_clock <= 'd0;
-always @ (posedge CLK100MHZ) slow_clock <= slow_clock + 'd1;
-
-assign DAC_clock = slow_clock[0]; // slow_clock[1]: 25MHz, slow_clock[0]: 50MHz
-
-wire [7:0] DAC_busy, DAC_sclk, DAC_cs_bar, DAC_sdi; 
-
-genvar i;
-generate
-    for (i=0; i<8; i=i+1) begin
-        DAC8734 dac(
-            .clock                      (DAC_clock), 
-            .start_trigger              (DAC_start[i]), 	
-            .data                       (DAC_data),
-            .sclk                       (DAC_sclk[i]), 
-            .cs_bar                     (DAC_cs_bar[i]), 
-            .sdi                        (DAC_sdi[i]), 
-            .busy                       (DAC_busy[i]) 
-        );
-    end
-endgenerate
-
-
+// Instantiate the SPI Multiple Single Output module
+spi_multiple_single_output #(
+    .NUM_CS                              (NUM_CS)
+) spi_mso_inst (
+    .CLK100MHZ                           (CLK100MHZ),
+    .cpol                                (cpol),
+    .cspol                               (cspol),
+    .slave_en                            (slave_en),
+    .cs_next                             (cs_next),
+    .sdo                                 (sdo),
+    .sck_next                            (sck_next),
+    .cs_val                              (cs_val),
+    .sdi                                 (sdi),
+    .io                                  ({ck_io_26, ck_io_29, ck_io_0, ck_io_3, ck_io_8, ck_io_11, ck_io_34, ck_io_37}),
+    .sck                                 (sck),
+    .cs                                  (cs)
+);
 
 reg ldac_bar; // Minimum 15ns for 3.6V < DV_DD ¡Â 5.5V, 2.7V ¡Â IOV_DD ¡Â DV_DD
 initial ldac_bar = 1'b1;
 
-assign {ck_io_39, ck_io_38, ck_io_37} = {DAC_cs_bar[0], DAC_sclk[0], DAC_sdi[0]};
-assign {ck_io_36, ck_io_35, ck_io_34} = {DAC_cs_bar[1], DAC_sclk[1], DAC_sdi[1]};
-assign {ck_io_31, ck_io_30, ck_io_29} = {DAC_cs_bar[6], DAC_sclk[6], DAC_sdi[6]};
-assign {ck_io_28, ck_io_27, ck_io_26} = {DAC_cs_bar[7], DAC_sclk[7], DAC_sdi[7]};
-assign {ck_io_13, ck_io_12, ck_io_11} = {DAC_cs_bar[2], DAC_sclk[2], DAC_sdi[2]};
-assign {ck_io_10, ck_io_9, ck_io_8} = {DAC_cs_bar[3], DAC_sclk[3], DAC_sdi[3]};
-assign {ck_io_5, ck_io_4, ck_io_3} = {DAC_cs_bar[4], DAC_sclk[4], DAC_sdi[4]};
-assign {ck_io_2, ck_io_1, ck_io_0} = {DAC_cs_bar[5], DAC_sclk[5], DAC_sdi[5]};
+assign {ck_io_39, ck_io_38} = {cs[0], sck};
+assign {ck_io_36, ck_io_35} = {cs[1], sck};
+assign {ck_io_31, ck_io_30} = {cs[6], sck};
+assign {ck_io_28, ck_io_27} = {cs[7], sck};
+assign {ck_io_13, ck_io_12} = {cs[2], sck};
+assign {ck_io_10, ck_io_9} = {cs[3], sck};
+assign {ck_io_5, ck_io_4} = {cs[4], sck};
+assign {ck_io_2, ck_io_1} = {cs[5], sck};
 
 
 assign ck_io_6 = ldac_bar;
@@ -296,7 +325,6 @@ assign ck_io_6 = ldac_bar;
 
 parameter CMD_LDAC                      = "LDAC"; // 4 characters
 parameter CMD_UPDATE_LDAC_LENGTH        = "LDAC LENGTH"; // 1 characters
-parameter CMD_LD                        = "LD";
 
 reg [7:0] ldac_length;
 initial ldac_length <= 40;
@@ -353,6 +381,8 @@ parameter CMD_READ_BIT_PATTERNS         = "READ BITS"; // 9 characters
 // Main FSM
 /////////////////////////////////////////////////////////////////
 typedef enum logic [3:0] {MAIN_IDLE, 
+                        MAIN_SPI_CONFIG,
+                        MAIN_RESET,
                         MAIN_DAC_WAIT_FOR_BUSY_ON, 
                         MAIN_DAC_WAIT_FOR_BUSY_OFF,
                         MAIN_DAC_LDAC_PAUSE, 
@@ -374,11 +404,20 @@ always @ (posedge CLK100MHZ) begin
             TX_buffer1_ready <= 1'b0;
             TX_buffer2_ready <= 1'b0;
             main_state <= MAIN_IDLE;
+            spi_reset <= 1'b0;
+            spi_config_in <= 32'h0;
+            spi_config_selected <= 1'b0;
+            spi_data_in <= 32'h0;
+            spi_data_selected <= 1'b0;
         end
     end
     else begin
         case (main_state)
             MAIN_IDLE: begin
+                spi_config_in <= 32'h0;
+                spi_config_selected <= 1'b0;
+                spi_data_in <= 32'h0;
+                spi_data_selected <= 1'b0;
                 if (CMD_Ready == 1'b1) begin
                     if ((CMD_Length == $bits(CMD_IDN)/8) && (CMD_Buffer[$bits(CMD_IDN):1] == CMD_IDN)) begin
                         TX_buffer1[1:$bits(IDN_REPLY)] <= IDN_REPLY;
@@ -393,17 +432,37 @@ always @ (posedge CLK100MHZ) begin
                     end
 
                     else if ((CMD_Length == $bits(CMD_WRITE_REG)/8) && (CMD_Buffer[$bits(CMD_WRITE_REG):1] == CMD_WRITE_REG)) begin
-                        if (BTF_Length != ((DAC_DATA_WIDTH+8)/8)) begin
+                        if (BTF_Length != (4)) begin
+                            $display("SET SPI DATA %d",BTF_Length);
                             TX_buffer1[1:13*8] <= {"Wrong length", BTF_Length[7:0]}; // Assuming that BTF_Length is less than 256
                             TX_buffer1_length[TX_BUFFER1_LENGTH_WIDTH-1:0] <= 'd13;
                             TX_buffer1_ready <= 1'b1;
                         end
-                        else if (DAC_update != 'd0) begin
-                            DAC_buffer <= BTF_Buffer[DAC_DATA_WIDTH+8:1];
+                        else if (busy != 1'b1) begin
+                            spi_data_in <= BTF_Buffer[32:1];
                             main_state <= MAIN_DAC_WAIT_FOR_BUSY_ON;
-                            DAC_start[7:0] <= DAC_update[7:0];
+                            spi_data_selected <= 1'b1;
                         end
                     
+                    end
+                    
+                    else if ((CMD_Length == $bits(CMD_SET_SPI_CONFIG)/8) && (CMD_Buffer[$bits(CMD_SET_SPI_CONFIG):1] == CMD_SET_SPI_CONFIG)) begin
+                        if (BTF_Length != (8)) begin
+                            $display("SET SPI CONFIG %d",BTF_Length);
+                            TX_buffer1[1:13*8] <= {"Wrong length", BTF_Length[7:0]}; // Assuming that BTF_Length is less than 256
+                            TX_buffer1_length[TX_BUFFER1_LENGTH_WIDTH-1:0] <= 'd13;
+                            TX_buffer1_ready <= 1'b1;
+                        end
+                        else if (busy != 1'b1) begin
+                            spi_config_in <= BTF_Buffer[32:1];
+                            main_state <= MAIN_SPI_CONFIG;
+                            spi_config_selected <= 1'b1;
+                        end
+                    end
+                    
+                    else if ((CMD_Length == $bits(CMD_RESET)/8) && (CMD_Buffer[$bits(CMD_RESET):1] == CMD_RESET)) begin
+                        spi_reset <= 1'b1;
+                        main_state <= MAIN_RESET;
                     end
 
                     else if ((CMD_Length == $bits(CMD_LDAC)/8) && (CMD_Buffer[$bits(CMD_LDAC):1] == CMD_LDAC)) begin
@@ -414,15 +473,6 @@ always @ (posedge CLK100MHZ) begin
 
                     else if ((CMD_Length == $bits(CMD_UPDATE_LDAC_LENGTH)/8) && (CMD_Buffer[$bits(CMD_UPDATE_LDAC_LENGTH):1] == CMD_UPDATE_LDAC_LENGTH)) begin
                         ldac_length[7:0] <= BTF_Buffer[8:1];
-                    end
-                    
-                    else if ((CMD_Length == $bits(CMD_LD)/8) && (CMD_Buffer[$bits(CMD_LD):1] == CMD_LD)) begin
-                        if (DAC_update != 'd0) begin
-                            DAC_start[7:0] <= DAC_update[7:0];
-                            DAC_buffer[DAC_DATA_WIDTH:1] <= 24'h4000;
-                            DAC_buffer[DAC_DATA_WIDTH+8:DAC_DATA_WIDTH+1] <= BTF_Buffer[DAC_DATA_WIDTH+8:DAC_DATA_WIDTH+1];
-                            main_state <= MAIN_DAC_WAIT_FOR_BUSY_ON;  
-                        end
                     end
 
                     else if ((CMD_Length == $bits(CMD_ADJUST_INTENSITY)/8) && (CMD_Buffer[$bits(CMD_ADJUST_INTENSITY):1] == CMD_ADJUST_INTENSITY)) begin
@@ -476,15 +526,21 @@ always @ (posedge CLK100MHZ) begin
             end
 
             MAIN_DAC_WAIT_FOR_BUSY_ON: begin
-                if (DAC_busy != 'd0) begin
+                spi_data_selected <= 1'b0;
+                if (busy != 1'b1) begin
                     main_state <= MAIN_DAC_WAIT_FOR_BUSY_OFF;
-                    DAC_start[7:0] <= 8'd0;
                 end
             end
 
 
             MAIN_DAC_WAIT_FOR_BUSY_OFF: begin
-                if (DAC_busy == 'd0) begin 
+                if (busy != 1'b1) begin 
+                    main_state <= MAIN_IDLE;
+                end
+            end
+            
+            MAIN_SPI_CONFIG : begin
+                if (busy != 1'b1) begin 
                     main_state <= MAIN_IDLE;
                 end
             end
@@ -498,6 +554,11 @@ always @ (posedge CLK100MHZ) begin
 
             MAIN_DAC_LDAC_OFF: begin
                 ldac_bar <= 1'b1;
+                main_state <= MAIN_IDLE;
+            end
+            
+            MAIN_RESET: begin
+                spi_reset <= 1'b0;
                 main_state <= MAIN_IDLE;
             end
 
