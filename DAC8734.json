@@ -8,11 +8,15 @@
             "ascii2hex.v",
             "async_receiver.v",
             "async_transmitter.v",
-            "DAC8734.v",
             "data_receiver_v1_00.v",
             "data_sender_v1_01.sv",
             "hex2ascii.v",
             "led_intensity_adjust.v",
+            "clock_divider.sv",
+            "shift_register_in.sv",
+            "shift_register_out.sv",
+            "spi_fsm_module.sv",
+            "spi_multiple_single_output.sv",
             "main_without_capture_waveform_data_v1_00.sv"
         ]
     },
